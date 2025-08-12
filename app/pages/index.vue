@@ -30,7 +30,7 @@ async function generateImage() {
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen gap-4 text-center w-full max-w-[420px] mx-auto p-4 lg:p-0">
     <h1 class="text-3xl font-bold">
-      Cat Image Generator
+      Dog Image Generator
     </h1>
     <form class="w-full" @submit.prevent="generateImage()">
       <UFormGroup label="Image prompt" class="mb-4">
