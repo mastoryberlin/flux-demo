@@ -1,5 +1,10 @@
 name: Deploy to NuxtHub
-on: push
+on: 
+  push:
+    paths-ignore:
+      - server/workflows/**
+      - server/types/**
+      - .github/workflows/cf-workflows.yml
 
 jobs:
   deploy:
