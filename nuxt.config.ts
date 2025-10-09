@@ -5,11 +5,16 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
 
   // https://nuxt.com/modules
-  modules: [
-    '@nuxthub/core',
-    '@nuxt/eslint',
-    '@nuxt/ui',
-  ],
+  modules: ['@nuxthub/core', '@nuxt/eslint', '@vueuse/nuxt', 'nuxt-jsoneditor'],
+  jsoneditor: {
+    componentName: 'JsonEditor',
+    options: {
+      darkTheme: true,
+      indentation: 2,
+      mainMenuBar: true,
+      navigationBar: true,
+    },
+  },
 
   // https://hub.nuxt.com/docs/getting-started/installation#options
   hub: {
@@ -28,13 +33,26 @@ export default defineNuxtConfig({
     },
   },
 
-  // https://eslint.nuxt.com
+  nitro: {
+    experimental: {
+      openAPI: true,
+      websocket: true,
+    },
+  },
+
+  // Development config
   eslint: {
     config: {
       stylistic: {
-        quotes: 'single'
-      }
-    }
+        quotes: 'single',
+        commaDangle: 'always-multiline',
+        semi: false,
+        indent: 2,
+      },
+      nuxt: {
+        sortConfigKeys: false,
+      },
+    },
   },
 
   // https://devtools.nuxt.com
