@@ -1,72 +1,203 @@
-<script setup>
-const toast = useToast()
-const prompt = ref('')
-const steps = ref(4)
-const src = ref('')
-const loading = ref(false)
-const style = ref('none')
-async function generateImage() {
-  if (loading.value || !prompt.value) return
-  loading.value = true
-  const { pathname } = await $fetch('/api/generate', {
-    method: 'POST',
-    body: {
-      prompt: prompt.value,
-      style: style.value,
-      steps: steps.value,
-    },
-  }).catch((error) => {
-    toast.add({
-      title: 'Error',
-      description: error.message,
-      color: 'red',
-    })
-  })
-  src.value = `/images/${pathname}`
-  loading.value = false
-}
-</script>
-
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen gap-4 text-center w-full max-w-[420px] mx-auto p-4 lg:p-0">
-    <h1 class="text-3xl font-bold">
-      Dog Image Generator
-    </h1>
-    <form class="w-full" @submit.prevent="generateImage()">
-      <UFormGroup label="Image prompt" class="mb-4">
-        <UTextarea
-          v-model="prompt"
-          placeholder="A beautiful landscape with a river and mountains"
-          class="w-full mb-4"
-          autoresize
-        />
-      </UFormGroup>
-      <UFormGroup label="Image style" class="mb-4">
-        <USelect
-          v-model="style"
-          :options="['none', 'photorealistic', 'comic-book', 'neon-punk', 'isometric', 'line-art', 'pixel-art', '3d-model']"
-          icon="i-heroicons-paint-brush"
-          block
-        />
-      </UFormGroup>
-      <UFormGroup :label="`Number of steps (${steps})`" class="mb-4">
-        <URange
-          v-model="steps"
-          :min="4"
-          :max="8"
-          size="sm"
-        />
-      </UFormGroup>
-      <UButton
-        type="submit"
-        color="black"
-        block
-        :loading="loading"
-        :disabled="!prompt"
-      >
-        Generate
-      </UButton>
-    </form>
-    <img v-if="src" :src="src" class="w-full max-w-[420px]">
+  <div>
+    <section>
+      <h1>CF Workflow + WebSocket Test</h1>
+    </section>
+
+    <section>
+      <button @click="openCloseWS">
+        {{ wsOpen ? 'Disconnect' : 'Connect' }}
+      </button>
+
+      <button @click="startWorkflow">
+        Start {{ data.length ? 'New ' : '' }}Workflow!
+      </button>
+
+      <template v-if="workflowId">
+        <button @click="abortWorkflow">
+          Abort
+        </button>
+
+        <!-- <button @click="resumeWorkflow">
+          Resume
+        </button> -->
+      </template>
+    </section>
+
+    <section>
+      <label>
+        Workflow ID:
+        <input
+          v-model="workflowId"
+          type="text"
+        >
+      </label>
+    </section>
+
+    <section class="two-cols">
+      <div class="left">
+        <h2>Streamed Data:</h2>
+        <ul>
+          <li
+            v-for="(item, index) in data"
+            :key="index"
+            :style="item.includes('error') ? { color: '#ff3c00' } : null"
+          >
+            {{ item }}
+          </li>
+        </ul>
+      </div>
+
+      <div class="right">
+        <h2>Content:</h2>
+        <label>
+          <input
+            v-model="showJson"
+            type="checkbox"
+          >
+          &nbsp;Show Full JSON Data
+        </label>
+        <ClientOnly v-if="showJson">
+          <JsonEditor v-model:json="content" />
+        </ClientOnly>
+        <div v-else>
+          <p>{{ content.markdown ?? '(no markdown content)' }}</p>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
+
+<script setup lang="ts">
+import { JsonEditor } from '#components'
+import type { ToolId } from '#tools'
+import type { ProgressMessage } from '~~/shared/types/ws'
+
+const route = useRoute()
+
+const data = ref<string[]>([])
+const wsOpen = ref(false)
+const workflowId = ref(route.query.id as string ?? '')
+const content = ref<any>({
+  words: 30,
+})
+const showJson = ref(false)
+
+const { open, close, send } = useWebSocket('wss://generation-progress.felix-162.workers.dev/ws/test-request', {
+  immediate: false,
+  async onMessage(ws, event) {
+    console.log('Received WS msg - data:', event.data)
+    const e = JSON.parse(event.data) as ProgressMessage
+    data.value.push(e.event)
+    if (e.result) {
+      content.value = e.result
+    }
+  },
+  onConnected() { wsOpen.value = true },
+  onDisconnected() { wsOpen.value = false },
+})
+
+let watchId = true
+watch(workflowId, async (id, o) => {
+  if (watchId && id && id !== o) {
+    try {
+      content.value = await $fetch(`/api/result/${id}`)
+    } catch (_) {}
+  }
+}, { immediate: true })
+
+// function subscribeToWorkflow(id: string) {
+//   const msg: ProgressMessage = {
+//     type: 'sub',
+//     workflowId: id,
+//   }
+//   send(JSON.stringify(msg))
+// }
+
+function openCloseWS() {
+  if (wsOpen.value) {
+    close()
+    wsOpen.value = false
+  } else {
+    open()
+    const id = workflowId.value
+    // if (id) {
+    //   subscribeToWorkflow(id)
+    // }
+  }
+}
+
+async function startWorkflow() {
+  const resp = await $fetch<{ id: string }>('/api/workflow', {
+    method: 'POST',
+    body: {
+      requestId: 'test-request',
+      toolId: '_mock' satisfies ToolId,
+      userInput: content.value,
+    },
+  })
+  const { id } = resp
+  watchId = false
+  workflowId.value = id
+  if (import.meta.client) {
+    history.pushState({}, '', route.fullPath.replace(/\?.*$/, '') + '?id=' + id)
+  }
+  // if (wsOpen.value) {
+  //   subscribeToWorkflow(id)
+  // }
+  nextTick(() => {
+    watchId = true
+  })
+}
+
+async function abortWorkflow() {
+  const id = workflowId.value
+  try {
+    await $fetch<{ id: string }>(`/api/workflow/${id}`, {
+      method: 'DELETE',
+    })
+  } catch (error) {
+    alert('Cannot abort since the workflow has already terminated')
+  }
+}
+async function resumeWorkflow() {
+  const id = workflowId.value
+  try {
+    await $fetch<{ id: string }>(`/api/workflow/${id}`, {
+      method: 'PATCH',
+    })
+  } catch (error) {
+    alert(`Cannot resume workflow: ${JSON.stringify(error)}`)
+  }
+}
+
+// onMounted(() => {
+//   openCloseWS()
+// })
+</script>
+
+<style scoped>
+section {
+  margin: 40px;
+}
+button {
+  margin-right: 8px;
+  padding: 3px 8px;
+  background: #7bbfc1;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover {
+  background: #9afcff;
+}
+.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.left {
+  grid-column: 1;
+}
+.right {
+  grid-column: 2;
+}
+</style>
