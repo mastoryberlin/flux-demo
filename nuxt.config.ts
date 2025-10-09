@@ -14,7 +14,18 @@ export default defineNuxtConfig({
   // https://hub.nuxt.com/docs/getting-started/installation#options
   hub: {
     ai: true,
+    database: true,
     blob: true,
+    bindings: {
+      workflow: {
+        GENERATION_WORKFLOW: {
+          name: 'GENERATION_WORKFLOW',
+          workflow_name: 'workflows-hello-world',
+          script_name: 'workflows-starter',
+          class_name: 'GenerationWorkflow',
+        },
+      },
+    },
   },
 
   // https://eslint.nuxt.com
