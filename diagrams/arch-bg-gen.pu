@@ -1,0 +1,28 @@
+@startuml arch-bg-gen
+entity "AI Models" as ai
+package "flux-demo " #bf7 {
+  [Web Client] as ui #8f0
+  [API Routes] as api #8f0
+  database "D1 Database" as d1 #8f0
+  collections "R2 Bucket" as r2 #8f0
+}
+
+package "hello " #fc4 {
+  component "Gen Workflow" as wf #fa0
+}
+queue "Message Queue" as q #fa0
+package "generation-progress" as do #fc4 {
+  [WebSocket] as ws #fa0
+}
+
+api --> wf
+wf <--> ai
+wf --> q
+q --> ws
+wf --> d1
+wf --> r2
+ui -> api
+ui <- ws
+api .. d1
+api .. r2
+@enduml

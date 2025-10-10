@@ -1,0 +1,39 @@
+@startuml arch-agent
+entity "AI Models" as ai
+
+package "flux-demo " #bf7 {
+  [Web UI] as ui #8f0
+  [API Routes] as api #8f0
+  database "D1 Database" as d1 #8f0
+  collections "R2 Bucket" as r2 #8f0
+}
+
+entity "Notifications" as noti
+
+package "             generation-progress" as do #fc4 {
+  [WebSocket] as ws #fa0
+  database "SQLite DB" as idb #fa0
+  component "State Machine" as sm #fa0
+  actor "Agent" as a #fa0
+}
+package "hello" as hello #fc4 {
+  component "Gen Workflow" as wf #fa0
+}
+queue "Event Queue" as q #fa0
+
+ui --> api
+ui <-- ws
+api --> a
+wf <-up-> ai
+sm --> noti
+wf --> q
+wf --> r2
+wf --> d1
+q -down-> sm
+sm .. idb
+sm --> ws
+sm <-> a
+sm -up-> wf
+api .. d1
+api .. r2
+@enduml
